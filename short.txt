@@ -1,0 +1,156 @@
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+
+public class ShortTermScheduler extends Thread implements InterSchedulerInterface, ControlInterface {
+
+    private LongTermScheduler longTermScheduler;
+
+    // Lista de processos prontos para execução
+    final ArrayList<Process> readyQueue = new ArrayList<>();
+    // Lista de processos bloqueados
+    final ArrayList<Process> blockedQueue = new ArrayList<>();
+    // Lista de processos finalizados
+    final ArrayList<Process> finishedQueue = new ArrayList<>();
+    final ArrayList<Integer> blockQueue = new ArrayList<>();
+
+    // Boolean para controlar o andamento da simulação
+    private boolean isRunning = false;
+    
+
+    public void setLongTermScheduler(LongTermScheduler longTermScheduler) {
+        this.longTermScheduler = longTermScheduler;
+    }
+
+    @Override
+    public void run() {
+        organizeReadyQueue();
+        startSimulation();
+    }
+
+    /*
+     * Método para ordenar a lista de prontos de forma crescente de acordo com
+     * o número de instruções "block" de cada processo
+     */
+    public void organizeReadyQueue() {
+        synchronized (readyQueue) {
+            readyQueue.sort(Comparator.comparingInt(Process::getNumberBlocks));
+        }
+    }
+
+    @Override
+    public void startSimulation() {
+        isRunning = true;
+        int i = 0;
+        int j = 0;
+
+        while (!readyQueue.isEmpty() && isRunning) {
+            i++;
+            // Executar todos os processos que estão na lista de prontos
+            execute(readyQueue);
+            readyQueue.clear();
+
+            if (!blockedQueue.isEmpty()) {
+                for (Process process : blockedQueue) {
+                    readyQueue.add(process);
+                }
+                blockedQueue.clear();
+            }
+
+            if (i == 3)
+                isRunning = false;
+
+        }
+
+    }
+
+    public void execute(ArrayList<Process> readyQueue) {
+        int instructionCount = 0;
+        for (Process process : readyQueue) {
+            for (String instruction : process.getInstructions()) {
+                if (instruction.equals("execute")) {
+                    instructionCount++;
+                    System.out.println(process.getName() + ": execute");
+                } else {
+                    instructionCount++;
+                    System.out.println(process.getName() + ": block");
+                    String[] aux = new String[0];
+                    aux = instruction.split(" ");
+                    int num = Integer.valueOf(aux[1]);
+                    blockQueue.add(num);
+                    block(process);
+                    break;
+                }
+            }
+            // Sublista List<String>
+            List<String> subList = process.getInstructions().subList(instructionCount,
+                    process.getInstructions().size());
+
+            // Converter a sublista para ArrayList<String>
+            ArrayList<String> arrayListSubList = new ArrayList<>(subList);
+
+            // Define as novas intruções
+            process.setInstructions(arrayListSubList);
+
+            instructionCount = 0;
+
+        }
+    }
+
+    public void block(Process currentProcess) {
+        blockedQueue.add(currentProcess);
+    }
+
+    @Override
+    public void suspendSimulation() {
+        isRunning = false;
+        System.out.println("Simulação suspensa");
+    }
+
+    @Override
+    public void resumeSimulation() {
+        isRunning = true;
+        System.out.println("Simulação retomada");
+    }
+
+    @Override
+    public void stopSimulation() {
+        isRunning = false;
+        readyQueue.clear();
+        blockedQueue.clear();
+        finishedQueue.clear();
+        System.out.println("Simulação finalizada");
+    }
+
+    @Override
+    public void displayProcessQueues() {
+        System.out.println("Lista de prontos:");
+        synchronized (readyQueue) {
+            for (Process process : readyQueue) {
+                System.out.println("Processo: " + process.getName());
+            }
+        }
+        System.out.println("Lista de bloqueados:");
+        synchronized (blockedQueue) {
+            for (Process process : blockedQueue) {
+                System.out.println("Processo: " + process.getName());
+            }
+        }
+        System.out.println("Lista de finalizados:");
+        synchronized (finishedQueue) {
+            for (Process process : finishedQueue) {
+                System.out.println("Processo: " + process.getName());
+            }
+        }
+    }
+
+    @Override
+    public void addProcess(Process bcp) {
+        longTermScheduler.addProcess(bcp);
+    }
+
+    @Override
+    public int getProcessLoad() {
+        return readyQueue.size() + blockedQueue.size();
+    }
+}

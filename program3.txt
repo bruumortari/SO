@@ -1,0 +1,6 @@
+program program3
+begin
+execute
+execute
+execute
+end
